@@ -106,6 +106,9 @@ def getContours(img, imgThres):
                     cv2.putText(im_contours, '%s'%area, (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (70, 0, 50), 2)
                     cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 10, 100), 2)
                     if area > maxArea and len(approx) == 4:
+                        cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 200, 50), 2)
+                        cv2.putText(im_contours, 'appro', (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (100, 200, 50), 2)
+
                         biggest = approx
                         maxArea = area
         return biggest, im_contours, area, peri
@@ -127,9 +130,10 @@ def reOrder(myPoints):
     return myNewPoints
 
 def getWarp(img, biggest, wiImg, heImg, rate, index):
-    rate = 1/ rate
+    rate = 1 / rate
     wiImg = int(wiImg * rate)
     heImg = int(heImg * rate)
+    print(biggest)
     biggest = biggest * rate
     try:
         if len(biggest) != 0:

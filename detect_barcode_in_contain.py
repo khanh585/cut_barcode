@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from utils import resize, findHeAndWi
+from utils import resize, findHeAndWi, getCoordinatesRect
 
 
 def empty(a):
@@ -37,7 +37,7 @@ def stackImages(scale,imgArray):
         ver = hor
     return ver
 
-path = 'frame_bar/ffb16.png'
+path = 'frame_container/ffb16.png'
 rate = 0
 cv2.namedWindow("TrackBars")
 cv2.resizeWindow("TrackBars",640,240)
@@ -63,39 +63,44 @@ def preProcess(img, kernelBlur, cannyValue, kernelDial, kernelThres):
 
 def setProperty():
     # cap = cv2.VideoCapture('video/Demo.mp4')
-    index = 0
-    while True:
-        img = cv2.imread(path)
-        index += 1
-        # success, img = cap.read()
-        imgReal = img.copy()
-        size = cv2.getTrackbarPos("size", "TrackBars")
-        img, rate = resize(img, size)
-        blur = cv2.getTrackbarPos("kernelBlur", "TrackBars")
-        canny = cv2.getTrackbarPos("cannyValue", "TrackBars")
-        dial = cv2.getTrackbarPos("kernelDial", "TrackBars")
-        padding = cv2.getTrackbarPos("padding", "TrackBars")
-        thres = cv2.getTrackbarPos("kernelThres", "TrackBars")
+    # index = 0
+    # while True:
+    img = cv2.imread(path)
+    # index += 1
+    # success, img = cap.read()
+    imgReal = img.copy()
+    size = cv2.getTrackbarPos("size", "TrackBars")
+    img, rate = resize(img, size)
+    blur = cv2.getTrackbarPos("kernelBlur", "TrackBars")
+    canny = cv2.getTrackbarPos("cannyValue", "TrackBars")
+    dial = cv2.getTrackbarPos("kernelDial", "TrackBars")
+    padding = cv2.getTrackbarPos("padding", "TrackBars")
+    thres = cv2.getTrackbarPos("kernelThres", "TrackBars")
 
-        imgBlur, imgCanny, imgDial, imgThres = preProcess(img = img, kernelBlur=(blur,blur), cannyValue=canny, kernelDial=(dial,dial), kernelThres=(thres,thres))
-        print(blur, canny, dial, thres, padding)
+    imgBlur, imgCanny, imgDial, imgThres = preProcess(img = img, kernelBlur=(blur,blur), cannyValue=canny, kernelDial=(dial,dial), kernelThres=(thres,thres))
 
-        biggest, imgContour, area, peri = getContours(img, imgThres, padding)
-        # he, wi = findHeAndWi(area = area, peri = peri)
-        # img_Warp = getWarp(imgReal, biggest, wiImg=wi, heImg=he, rate = rate, index = index)
+    imgContour, listBarCode = getContours(img, imgThres, padding)
 
-        #show result
-        imgStack = stackImages(0.6,([imgContour, imgCanny], [imgDial, imgThres]))
-        cv2.imshow("Stacked Images", imgStack)
-        cv2.waitKey(1)
+    imgStack = stackImages(0.6,([imgContour, imgCanny], [imgDial, imgThres]))
+
+    i = 0
+    for barcode in listBarCode:
+        i+=1
+        img_Warp = getWarp(imgReal, barcode['coordinates'], wiImg=barcode['wi'], heImg=barcode['he'], rate = rate, index = 0)
+        cv2.imshow("listImg%s"%i, img_Warp)
+
+    #show result
+    cv2.imshow("Stacked Images", imgStack)
+    cv2.waitKey(20*1000)
 
 def getContours(img, imgThres, padding):
     try:
         padding = padding
-        biggest = np.array([])
-        maxArea = 0
+        coordinates = np.array([])
+        # maxArea = 0
         contours, hierarchy = cv2.findContours(imgThres, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
         im_contours = img.copy()
+        listBarCode = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area > 500:
@@ -104,57 +109,54 @@ def getContours(img, imgThres, padding):
                 approx = cv2.approxPolyDP(cnt,0.02*peri,True)
                 x,y,w,h = cv2.boundingRect(approx)
                 obj_cor = len(approx)
-                print(obj_cor)
                 if(obj_cor >= 4):
                     cv2.putText(im_contours, '%s'%area, (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (70, 0, 50), 2)
                     cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 10, 100), 2)
-                    if area > maxArea and len(approx) == 4:
-                        biggest = approx
-                        maxArea = area
-        return biggest, im_contours, area, peri
+                    listBarCode.append({'area':area,'peri':peri,'coordinates': getCoordinatesRect(x,y,w,h,padding), 'wi': w, 'he':h})
+        return im_contours, listBarCode
     except Exception as e:
-        # print(e)
-        return biggest, img, 1, 1
+        print(e)
+        return img, None
 
-# def reOrder(myPoints):
-#     myPoints = myPoints.reshape((4,2))
-#     myNewPoints = np.zeros((4,1,2),np.int32)
-#     add = myPoints.sum(1)
+def reOrder(myPoints):
+    myPoints = myPoints.reshape((4,2))
+    myNewPoints = np.zeros((4,1,2),np.int32)
+    add = myPoints.sum(1)
 
-#     myNewPoints[0] = myPoints[np.argmin(add)]
-#     myNewPoints[3] = myPoints[np.argmax(add)]
-#     diff = np.diff(myPoints, axis=1)
-#     myNewPoints[1] = myPoints[np.argmin(diff)]
-#     myNewPoints[2] = myPoints[np.argmax(diff)]
+    myNewPoints[0] = myPoints[np.argmin(add)]
+    myNewPoints[3] = myPoints[np.argmax(add)]
+    diff = np.diff(myPoints, axis=1)
+    myNewPoints[1] = myPoints[np.argmin(diff)]
+    myNewPoints[2] = myPoints[np.argmax(diff)]
 
-#     return myNewPoints
+    return myNewPoints
 
-# def getWarp(img, biggest, wiImg, heImg, rate, index):
-#     rate = 1/ rate
-#     wiImg = int(wiImg * rate)
-#     heImg = int(heImg * rate)
-#     biggest = biggest * rate
-#     try:
-#         if len(biggest) != 0:
-#             biggest = reOrder(biggest)
-#             pts1 = np.float32(biggest)
-#             pts2 = np.float32([[0,0],[wiImg,0], [0,heImg], [wiImg, heImg]])
-#             matrix = cv2.getPerspectiveTransform(pts1, pts2)
-#             imgOutput = cv2.warpPerspective(img, matrix, (wiImg, heImg))
+def getWarp(img, coordinates, wiImg, heImg, rate, index):
+    rate = 1/ rate
+    wiImg = int(wiImg * rate)
+    heImg = int(heImg * rate)
+    coordinates = coordinates * rate
+    try:
+        if len(coordinates) != 0:
+            coordinates = reOrder(coordinates)
+            pts1 = np.float32(coordinates)
+            pts2 = np.float32([[0,0],[wiImg,0], [0,heImg], [wiImg, heImg]])
+            matrix = cv2.getPerspectiveTransform(pts1, pts2)
+            imgOutput = cv2.warpPerspective(img, matrix, (wiImg, heImg))
 
-#             imgCropped = imgOutput[20:imgOutput.shape[0]+20, 20: imgOutput.shape[1]+20]
-#             imgCropped = cv2.resize(imgCropped, (wiImg, heImg))
+            imgCropped = imgOutput[20:imgOutput.shape[0]+20, 20: imgOutput.shape[1]+20]
+            imgCropped = cv2.resize(imgCropped, (wiImg, heImg))
             
-#             # path = 'frame_bar/ffb%s.png'%index
-#             # cv2.imwrite(path, imgCropped)
+            # path = 'frame_bar/ffb%s.png'%index
+            # cv2.imwrite(path, imgCropped)
 
-#             return imgCropped
-#         else:
-#             print('else')
-#             return img
-#     except Exception as e:
-#         print(e)
-#         return img
+            return imgCropped
+        else:
+            print('else')
+            return img
+    except Exception as e:
+        print(e)
+        return img
 
 
 setProperty()

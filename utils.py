@@ -61,6 +61,19 @@ def resize(img, wi):
     rate = he / img.shape[0]
     return cv2.resize(img,(wi,he)), rate
 
+def getCoordinatesRect(x, y, w, h, padding):
+    if not padding:
+        padding = 0 
+    arr = np.array([
+        [[x - padding*2, y - padding * 2]],
+        [[x + w + padding, y - padding * 2 ]],
+        [[x + w + padding, y + h + padding]],
+        [[x - padding*2,y+h + padding]]
+    ])
+
+    return arr
+    
+
 
 def findHeAndWi(area, peri):
     # calculate the discriminant
@@ -79,8 +92,4 @@ def findHeAndWi(area, peri):
     wi = x1 
     he = area / wi
 
-    print(area, peri, he, wi)
-
     return he, wi
-
-findHeAndWi(area=15, peri=16)
