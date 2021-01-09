@@ -61,7 +61,7 @@ def preProcess(img, kernelBlur, cannyValue, kernelDial, kernelThres):
     except:
         return img, img, img ,img
 
-def setProperty():
+def setPropertyBarCode():
     # cap = cv2.VideoCapture('video/Demo.mp4')
     # index = 0
     # while True:
@@ -69,17 +69,17 @@ def setProperty():
     # index += 1
     # success, img = cap.read()
     imgReal = img.copy()
-    size = cv2.getTrackbarPos("size", "TrackBars")
+    size = 800
     img, rate = resize(img, size)
-    blur = cv2.getTrackbarPos("kernelBlur", "TrackBars")
-    canny = cv2.getTrackbarPos("cannyValue", "TrackBars")
-    dial = cv2.getTrackbarPos("kernelDial", "TrackBars")
-    padding = cv2.getTrackbarPos("padding", "TrackBars")
-    thres = cv2.getTrackbarPos("kernelThres", "TrackBars")
+    blur = 5
+    canny = 65
+    dial = 7
+    padding = 15
+    thres = 24
 
     imgBlur, imgCanny, imgDial, imgThres = preProcess(img = img, kernelBlur=(blur,blur), cannyValue=canny, kernelDial=(dial,dial), kernelThres=(thres,thres))
 
-    imgContour, listBarCode = getContours(img, imgThres, padding)
+    imgContour, listBarCode = getContoursBarCode(img, imgThres, padding)
 
     imgStack = stackImages(0.6,([imgContour, imgCanny], [imgDial, imgThres]))
 
@@ -93,11 +93,10 @@ def setProperty():
     cv2.imshow("Stacked Images", imgStack)
     cv2.waitKey(20*1000)
 
-def getContours(img, imgThres, padding):
+def getContoursBarCode(img, imgThres, padding):
     try:
         padding = padding
         coordinates = np.array([])
-        # maxArea = 0
         contours, hierarchy = cv2.findContours(imgThres, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
         im_contours = img.copy()
         listBarCode = []
@@ -112,7 +111,7 @@ def getContours(img, imgThres, padding):
                 if(obj_cor >= 4):
                     cv2.putText(im_contours, '%s'%area, (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (70, 0, 50), 2)
                     cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 10, 100), 2)
-                    listBarCode.append({'area':area,'peri':peri,'coordinates': getCoordinatesRect(x,y,w,h,padding), 'wi': w, 'he':h})
+                    listBarCode.append({'coordinates': getCoordinatesRect(x,y,w,h,padding), 'wi': w, 'he':h})
         return im_contours, listBarCode
     except Exception as e:
         print(e)
@@ -158,5 +157,3 @@ def getWarp(img, coordinates, wiImg, heImg, rate, index):
         print(e)
         return img
 
-
-setProperty()

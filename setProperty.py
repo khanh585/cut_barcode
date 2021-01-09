@@ -78,9 +78,10 @@ def setProperty():
         imgBlur, imgCanny, imgDial, imgThres = preProcess(img = img, kernelBlur=(blur,blur), cannyValue=canny, kernelDial=(dial,dial), kernelThres=(thres,thres))
         # print(blur, canny, dial, thres)
 
-        biggest, imgContour, area, peri = getContours(img, imgThres)
-        he, wi = findHeAndWi(area = area, peri = peri)
-        img_Warp = getWarp(imgReal, biggest, wiImg=wi, heImg=he, rate = rate, index = index)
+        imgContour, listContainer = getContours(img, imgThres)
+
+        for container in listContainer:
+            img_Warp = getWarp(imgReal, biggest=container['coordinates'], wiImg=container['wi'], heImg=container['wi'], rate = rate, index = index)
 
         #show result
         imgStack = stackImages(0.6,([imgContour, imgBlur, imgCanny], [imgDial, imgThres, img_Warp]))
@@ -90,10 +91,9 @@ def setProperty():
 def getContours(img, imgThres):
     try:
         padding = 7
-        biggest = np.array([])
-        maxArea = 0
         contours, hierarchy = cv2.findContours(imgThres, cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
         im_contours = img.copy()
+        listContainer = []
         for cnt in contours:
             area = cv2.contourArea(cnt)
             if area > 7000 and area <15000:
@@ -105,16 +105,14 @@ def getContours(img, imgThres):
                 if(obj_cor == 4):
                     cv2.putText(im_contours, '%s'%area, (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (70, 0, 50), 2)
                     cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 10, 100), 2)
-                    if area > maxArea and len(approx) == 4:
-                        cv2.rectangle(im_contours, (x - padding, y - padding), (x + w + padding, y + h + padding), (100, 200, 50), 2)
-                        cv2.putText(im_contours, 'appro', (x , y), cv2.FONT_HERSHEY_COMPLEX, 0.7, (100, 200, 50), 2)
+                    if len(approx) == 4:
+                        dic = {'coordinates': approx, 'wi': w, 'he':h}
+                        listContainer.append(dic)
 
-                        biggest = approx
-                        maxArea = area
-        return biggest, im_contours, area, peri
+        return im_contours, listContainer
     except Exception as e:
         print(e)
-        return biggest, img
+        return img, listContainer
 
 def reOrder(myPoints):
     myPoints = myPoints.reshape((4,2))
@@ -133,7 +131,6 @@ def getWarp(img, biggest, wiImg, heImg, rate, index):
     rate = 1 / rate
     wiImg = int(wiImg * rate)
     heImg = int(heImg * rate)
-    print(biggest)
     biggest = biggest * rate
     try:
         if len(biggest) != 0:
